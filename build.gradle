@@ -29,6 +29,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.1'
+	// 1. Spring Kafka Starter (필수)
+	implementation 'org.springframework.boot:spring-boot-starter-kafka'
+
+	// 2. Web (카프카 테스트용 API 작성시)
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	// 3. Docker Compose 지원 (Docker Desktop이 켜져있으면 자동으로 띄워줌)
+	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.h2database:h2'
@@ -39,6 +48,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 
 tasks.named('test') {
