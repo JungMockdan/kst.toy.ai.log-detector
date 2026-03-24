@@ -4,11 +4,13 @@ import kst.toy.ai.logdetector.domain.AccessLog;
 import kst.toy.ai.logdetector.domain.LogEvent;
 import kst.toy.ai.logdetector.repository.LogRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KafkaConsumerService {
@@ -20,6 +22,7 @@ public class KafkaConsumerService {
     @KafkaListener(topics = "logs", groupId = "log-group")
     public void consume(LogEvent event) {
 
+        log.debug("KAFKA CONSUMED ip:",event.getIp());
         // 1. sliding window
         long count = windowService.addRequest(event.getIp());
 

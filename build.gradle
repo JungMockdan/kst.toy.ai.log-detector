@@ -35,6 +35,10 @@ dependencies {
 
 	// 2. Web (카프카 테스트용 API 작성시)
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	//	(JSON 직렬화/역직렬화 엔진)
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	implementation 'com.fasterxml.jackson.core:jackson-annotations'
+
 
 	// 3. Docker Compose 지원 (Docker Desktop이 켜져있으면 자동으로 띄워줌)
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
