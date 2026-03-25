@@ -1,16 +1,19 @@
 package kst.toy.ai.logdetector.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.security.Key;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RedisWindowService {
@@ -37,6 +40,7 @@ public class RedisWindowService {
     @Autowired
     private ObjectMapper objectMapper;
     public Map<String, Object> getActiveIps() {
+        log.debug("/active-alert");
         Set<String> keys = redisTemplate.keys("ALERT:*");
 
 
@@ -47,6 +51,7 @@ public class RedisWindowService {
         Map<String, Object> result = new HashMap<>();
 
         for (String key : keys) {
+            log.debug("IP: ", key);
             // String으로 가져온 뒤, JSON 파싱을 위해 Object로 저장
             // 1. Redis에서 문자열을 가져옵니다.
             String jsonStr = (String) redisTemplate.opsForValue().get(key);

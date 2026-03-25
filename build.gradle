@@ -30,6 +30,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.1'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
 	// 1. Spring Kafka Starter (필수)
 	implementation 'org.springframework.boot:spring-boot-starter-kafka'
 
@@ -52,7 +54,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
 }
 
 tasks.named('test') {

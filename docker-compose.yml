@@ -29,3 +29,9 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     depends_on:
       - kafka
+  redis:
+    image: redis:latest
+
+    ports:
+      - "6379:6379"
+
