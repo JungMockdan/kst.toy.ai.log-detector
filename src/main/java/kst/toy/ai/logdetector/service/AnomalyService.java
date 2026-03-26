@@ -1,16 +1,20 @@
 package kst.toy.ai.logdetector.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import kst.toy.ai.logdetector.analyzer.Feature;
 import kst.toy.ai.logdetector.domain.AnomalyResult;
 import kst.toy.ai.logdetector.domain.enm.RiskLevel;
 import kst.toy.ai.logdetector.repository.AnomalyResultRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -18,8 +22,11 @@ import java.util.List;
 public class AnomalyService {
 
     private final AnomalyResultRepository resultRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
 
 /**
+ * 이상 탐지 로직
+ * Rule-based 방식임
  * [Feature]
             ↓
     평균 계산
@@ -41,16 +48,24 @@ public class AnomalyService {
                 .orElse(0);
 
         double std = calculateStd(features, mean);
-        List<AnomalyResult> result = features.stream()
+        return features.stream()
                 .map(f -> {
                     double z = calculateZScore(f.getRequestCount(), mean, std);
                     RiskLevel risk = classifyRisk(z);
-                    f.toString();
+
+                    // AI 예측 추가
+                    Map<String, Object> aiResult = predictAnomalyWithAI(f);
+                    boolean aiAnomaly = (boolean) aiResult.get("is_anomaly");
+                    double aiScore = (double) aiResult.get("anomaly_score");
+
+                    // Z-score와 AI 결합: 둘 중 하나라도 이상이면 HIGH
+                    RiskLevel finalRisk = (risk == RiskLevel.HIGH || aiAnomaly) ? RiskLevel.HIGH : risk;
 
                     return AnomalyResult.builder()
                             .ip(f.getIp())
                             .score(z)
-                            .riskLevel(risk.name())
+                            .aiScore(aiScore)
+                            .riskLevel(finalRisk.name())
                             .requestCount(f.getRequestCount())
                             .failureRate(f.getFailureRate())
                             .detectedAt(LocalDateTime.now())
@@ -58,7 +73,6 @@ public class AnomalyService {
                 })
                 .map(resultRepository::save)
                 .toList();
-        return result;
     }
 
 
@@ -101,5 +115,35 @@ public class AnomalyService {
                 .orElse(0);
 
         return Math.sqrt(variance);
+    }
+
+    /**
+     * AI 기반 이상 예측 (Python ML API 호출)
+     */
+    private Map<String, Object> predictAnomalyWithAI(Feature feature) {
+        try {
+            String url = "http://localhost:5000/predict";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            // Feature 데이터를 JSON으로 변환
+            Map<String, Object> requestBody = Map.of(
+                "features", new double[]{
+                    feature.getRequestCount(),
+                    feature.getFailureRate(),
+                    feature.getDistinctUrlCount(),
+                    feature.getAverageUrlLength(),
+                    feature.getHourOfDay()
+                }
+            );
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("AI prediction failed: {}", e.getMessage());
+            return Map.of("is_anomaly", false, "anomaly_score", 0.0); // fallback
+        }
     }
 }

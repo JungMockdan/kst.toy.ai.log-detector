@@ -1,11 +1,11 @@
 package kst.toy.ai.logdetector.service;
 
-import lombok.RequiredArgsConstructor;
+import java.time.Duration;
+
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor

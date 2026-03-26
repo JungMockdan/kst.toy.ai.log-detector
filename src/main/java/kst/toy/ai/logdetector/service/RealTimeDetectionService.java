@@ -1,16 +1,15 @@
 package kst.toy.ai.logdetector.service;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+
 import kst.toy.ai.logdetector.domain.AnomalyResult;
 import kst.toy.ai.logdetector.domain.DetectionResult;
 import kst.toy.ai.logdetector.domain.enm.RiskLevel;
 import kst.toy.ai.logdetector.repository.AnomalyResultRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 //실시간 탐지 서비스
 @Service
@@ -20,31 +19,6 @@ public class RealTimeDetectionService {
     private final AnomalyResultRepository resultRepository;
     private final AlertDedupService alertDedupService;
 
-    /*public void detect(String ip, int status, long count) {
-
-        double failureScore = (status >= 400) ? 1.0 : 0.0;
-        RiskLevel risk = classifyRisk(count, failureScore);
-        if (risk.equals(RiskLevel.LOW)) return;
-
-
-        // 중복 탐지 방지
-        if (!alertDedupService.isFirstDetection(ip)) return;
-
-        double score = calculateScore(count, failureScore);
-
-        AnomalyResult result = AnomalyResult.builder()
-                .ip(ip)
-                .score(score)
-                .riskLevel(risk)
-                .requestCount((int) count)
-                .failureRate(failureScore)
-                .detectedAt(LocalDateTime.now())
-                .build();
-
-        resultRepository.save(result);
-
-        System.out.println("🚨 DETECTED: " + ip + " risk=" + risk + " score=" + score);
-    }*/
     public void detect(String ip, int status, long count) {
 
         DetectionResult result = analyze(ip, status, count);
@@ -147,17 +121,4 @@ public class RealTimeDetectionService {
         return (count * 0.8) + (failureScore * 20);
     }
 
-    private void saveToDatabase(DetectionResult result) {
-
-        AnomalyResult entity = AnomalyResult.builder()
-                .ip(result.getIp())
-                .riskLevel(result.getRiskLevel().name())
-                .score(result.getScore())
-                .requestCount((int) result.getRequestCount())
-                .failureRate(result.getFailureRate())
-                .detectedAt(LocalDateTime.now())
-                .build();
-
-        resultRepository.save(entity);
-    }
 }

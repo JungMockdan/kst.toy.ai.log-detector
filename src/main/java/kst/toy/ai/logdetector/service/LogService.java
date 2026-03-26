@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 public class LogService {
 
     private final LogRepository logRepository;
-    //    private final RedisService redisService;
     private final RedisWindowService windowService;
     private final RealTimeDetectionService detectionService;
 
@@ -25,10 +24,12 @@ public class LogService {
     public void publish(LogRequestDto dto) {
 
         LogEvent event = LogEvent.builder()
+                .eventId(java.util.UUID.randomUUID().toString())
                 .ip(dto.getIp())
                 .url(dto.getUrl())
                 .status(dto.getStatus())
                 .timestamp(System.currentTimeMillis())
+                .createdAt(System.currentTimeMillis())
                 .build();
 
         producer.send(event);
@@ -46,9 +47,8 @@ public class LogService {
     public AccessLog save(LogRequestDto dto) {
 
         // 1. Redis 증가
-//        Long count = redisService.incrementIpCount(dto.getIp());
         long count = windowService.addRequest(dto.getIp());
-        System.out.println("DETECT COUNT=" + count);
+        log.info("DETECT COUNT={}", count);
         // 2. 즉시 탐지
         detectionService.detect(dto.getIp(), dto.getStatus(), count);
 
@@ -63,19 +63,4 @@ public class LogService {
         return logRepository.save(log);
     }
 
-//    public AccessLog save(LogRequestDto dto) {
-//
-//        String ip = dto.getIp();
-//        Long count = redisService.incrementIpCount(ip);
-//        log.info("IP=" + ip + ", count=" + count);
-//
-//        AccessLog log = AccessLog.builder()
-//                .ip(ip)
-//                .url(dto.getUrl())
-//                .status(dto.getStatus())
-//                .timestamp(LocalDateTime.now())
-//                .build();
-//
-//        return logRepository.save(log);
-//    }
 }

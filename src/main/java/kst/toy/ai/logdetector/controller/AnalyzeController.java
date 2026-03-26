@@ -9,10 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/****
- *
- * todo 실시간 탐질호 바뀌면서 계산식을 바꿔야 한다.
- * */
 
 @RestController
 @RequestMapping("/analyze")
@@ -28,5 +24,17 @@ public class AnalyzeController {
         List<Feature> features = featureService.extractFeatures();
 
         return anomalyService.detect(features);
+    }
+
+    @GetMapping("/features")
+    public List<Feature> getFeatures() {
+        return featureService.extractFeatures();
+    }
+
+    @PostMapping("/features/export")
+    public String exportFeatures(@RequestParam(defaultValue = "feature-data.csv") String fileName) {
+        String outputPath = java.nio.file.Paths.get(System.getProperty("user.dir"), fileName).toString();
+        featureService.exportFeaturesToCsv(outputPath);
+        return "Exported feature CSV to " + outputPath;
     }
 }

@@ -10,4 +10,7 @@ public class Feature {
     private String ip;
     private int requestCount;
     private double failureRate;
+    private int distinctUrlCount;
+    private double averageUrlLength;
+    private int hourOfDay;
 }

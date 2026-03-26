@@ -1,10 +1,17 @@
 package kst.toy.ai.logdetector.domain;
 
-import jakarta.persistence.*;
-import kst.toy.ai.logdetector.domain.enm.RiskLevel;
-import lombok.*;
-
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Getter
@@ -23,6 +30,8 @@ public class AnomalyResult {
 
     private double score; // Z-score
 
+    private double aiScore; // AI anomaly score
+
     private String riskLevel; // LOW / MEDIUM / HIGH
 
     private int requestCount;
@@ -37,6 +46,7 @@ public class AnomalyResult {
                 "id=" + id +
                 ", ip='" + ip + '\'' +
                 ", score=" + score +
+                ", aiScore=" + aiScore +
                 ", riskLevel='" + riskLevel + '\'' +
                 ", requestCount=" + requestCount +
                 ", failureRate=" + failureRate +

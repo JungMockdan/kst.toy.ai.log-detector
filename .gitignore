@@ -48,6 +48,11 @@ out/
 *.war
 *.nar
 *.ear
+
+### H2 Database ###
+data/
+*.mv.db
+*.trace.db
 *.zip
 *.tar.gz
 *.rar
