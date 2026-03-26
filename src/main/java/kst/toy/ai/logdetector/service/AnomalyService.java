@@ -3,6 +3,8 @@ package kst.toy.ai.logdetector.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import kst.toy.ai.logdetector.analyzer.Feature;
@@ -23,6 +25,7 @@ public class AnomalyService {
 
     private final AnomalyResultRepository resultRepository;
     private final RestTemplate restTemplate = new RestTemplate();
+
 
 /**
  * 이상 탐지 로직
