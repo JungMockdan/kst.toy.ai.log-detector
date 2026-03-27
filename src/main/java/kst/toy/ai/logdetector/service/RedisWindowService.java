@@ -20,6 +20,23 @@ public class RedisWindowService {
     private final StringRedisTemplate redisTemplate;
 
     private static final long WINDOW_DURATION_SECONDS = 300;
+    private static final String STATS_MEAN_KEY = "STATS:mean";
+    private static final String STATS_STD_KEY  = "STATS:std";
+
+    public void saveStats(double mean, double std) {
+        redisTemplate.opsForValue().set(STATS_MEAN_KEY, String.valueOf(mean));
+        redisTemplate.opsForValue().set(STATS_STD_KEY,  String.valueOf(std));
+    }
+
+    public double getCachedMean() {
+        String v = redisTemplate.opsForValue().get(STATS_MEAN_KEY);
+        return v != null ? Double.parseDouble(v) : -1;
+    }
+
+    public double getCachedStd() {
+        String v = redisTemplate.opsForValue().get(STATS_STD_KEY);
+        return v != null ? Double.parseDouble(v) : -1;
+    }
 
     public long addRequest(String ip) {
 

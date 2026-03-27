@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Anomaly Detector</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --panel:    #161b22;
+      --border:   #21262d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --high:     #f85149;
+      --medium:   #e3b341;
+      --low:      #3fb950;
+      --accent:   #58a6ff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Consolas', 'Courier New', monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      padding: 10px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .sse-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-right: 20px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #444;
+      transition: background 0.3s;
+    }
+    .dot.live   { background: var(--low); box-shadow: 0 0 8px var(--low); animation: pulse 2s infinite; }
+    .dot.error  { background: var(--high); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .last-update {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .stat {
+      background: var(--panel);
+      padding: 10px 18px;
+      text-align: center;
+    }
+    .stat-label  { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+    .stat-value  { font-size: 30px; font-weight: 700; margin-top: 2px; transition: color 0.3s; }
+    .stat-value.high   { color: var(--high); }
+    .stat-value.medium { color: var(--medium); }
+    .stat-value.low    { color: var(--low); }
+
+    /* ── MAIN GRID ── */
+    .main-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 58% 42%;
+      grid-template-rows: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--panel);
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* bar chart spans full left column */
+    .panel-bar      { grid-column: 1; grid-row: 1 / 3; }
+    .panel-donut    { grid-column: 2; grid-row: 1; }
+    .panel-scatter  { grid-column: 2; grid-row: 2; display: none; } /* hidden: log replaces it */
+    .panel-log      { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
+
+    .panel-title {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── EVENT LOG ── */
+    .log-title {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .log-entries {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .log-entries::-webkit-scrollbar { width: 3px; }
+    .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .log-entry {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: var(--bg);
+      border-left: 3px solid transparent;
+      animation: slide-in 0.25s ease;
+    }
+    .log-entry.HIGH   { border-left-color: var(--high); }
+    .log-entry.MEDIUM { border-left-color: var(--medium); }
+    .log-entry.LOW    { border-left-color: var(--low); }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .entry-ip    { min-width: 100px; font-weight: bold; }
+    .entry-badge {
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 3px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .entry-badge.HIGH   { background: rgba(248,81,73,.18); color: var(--high); }
+    .entry-badge.MEDIUM { background: rgba(227,179,65,.18); color: var(--medium); }
+    .entry-badge.LOW    { background: rgba(63,185,80,.18);  color: var(--low); }
+
+    .entry-meta { color: var(--muted); font-size: 10px; margin-left: auto; }
+
+    /* ── FLASH on HIGH detect ── */
+    @keyframes flash-high {
+      0%   { background: rgba(248,81,73,.25); }
+      100% { background: var(--bg); }
+    }
+    .log-entry.HIGH.new { animation: slide-in .25s ease, flash-high 1.2s ease forwards; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🛡 AI Log Anomaly Detector</div>
+  <div class="sse-badge">
+    <div class="dot" id="sse-dot"></div>
+    <span id="sse-label">CONNECTING</span>
+  </div>
+  <div class="last-update" id="last-update">—</div>
+</header>
+
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-label">Monitored IPs</div>
+    <div class="stat-value" id="stat-total">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">High Risk</div>
+    <div class="stat-value high" id="stat-high">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Medium Risk</div>
+    <div class="stat-value medium" id="stat-medium">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Low Risk</div>
+    <div class="stat-value low" id="stat-low">0</div>
+  </div>
+</div>
+
+<div class="main-grid">
+
+  <!-- LEFT: Sorted bar chart -->
+  <div class="panel panel-bar" id="bar-panel">
+    <div class="panel-title">Anomaly Score by IP — Real-time</div>
+  </div>
+
+  <!-- RIGHT TOP: Donut -->
+  <div class="panel panel-donut" id="donut-panel">
+    <div class="panel-title">Risk Distribution</div>
+  </div>
+
+  <!-- RIGHT BOTTOM: Live event log -->
+  <div class="panel-log">
+    <div class="log-title">Live Events</div>
+    <div class="log-entries" id="log-entries"></div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+const ipState   = new Map();   // ip → latest AnomalyResult
+const RISK_COLOR = { HIGH:'#f85149', MEDIUM:'#e3b341', LOW:'#3fb950' };
+
+function riskColor(r) { return RISK_COLOR[r] || '#58a6ff'; }
+
+function parseDate(v) {
+  if (!v) return new Date();
+  if (Array.isArray(v)) return new Date(v[0], v[1]-1, v[2], v[3]||0, v[4]||0, v[5]||0);
+  return new Date(v);
+}
+
+function fmtTime(d) {
+  return d.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+}
+
+function buildReason(event) {
+  const z = Math.abs(Number(event.score || 0));
+  const ai = Number(event.aiScore || 0);
+  const aiAnomaly = ai < 0;
+  if (event.riskLevel === 'HIGH') {
+    if (z >= 3.0) return '|z|>=3.0';
+    if (aiAnomaly) return 'AI anomaly';
+    return 'risk escalated';
+  }
+  if (event.riskLevel === 'MEDIUM') {
+    if (z >= 2.0) return '|z|>=2.0';
+    return 'rule-based medium';
+  }
+  return 'normal range';
+}
+
+// ─────────────────────────────────────────────
+//  ECharts: Sorted Bar
+// ─────────────────────────────────────────────
+const barChart = echarts.init(document.getElementById('bar-panel'), 'dark');
+
+function buildBarOption(entries) {
+  const sorted = [...entries].sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
+
+  return {
+    backgroundColor: 'transparent',
+    grid: { top: 36, bottom: 16, left: 10, right: 80, containLabel: true },
+    xAxis: {
+      type: 'value',
+      min: 0,
+      splitLine: { lineStyle: { color: '#21262d' } },
+      axisLabel: { color: '#8b949e', fontSize: 10 }
+    },
+    yAxis: {
+      type: 'category',
+      data: sorted.map(e => e.ip),
+      inverse: false,
+      axisLabel: { color: '#e6edf3', fontSize: 11, fontFamily: 'Consolas' },
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: '#21262d' } }
+    },
+    series: [{
+      type: 'bar',
+      data: sorted.map(e => ({
+        value: Math.abs(e.score),
+        itemStyle: {
+          color: riskColor(e.riskLevel),
+          shadowBlur:  e.riskLevel === 'HIGH'   ? 14 : e.riskLevel === 'MEDIUM' ? 6 : 0,
+          shadowColor: riskColor(e.riskLevel)
+        },
+        label: { show: true, position: 'right',
+          formatter: p => `${p.value.toFixed(3)}  ${sorted[p.dataIndex]?.riskLevel || ''}`,
+          color: '#8b949e', fontSize: 10, distance: 4 }
+      })),
+      barMaxWidth: 26,
+      realtimeSort: false,
+      emphasis: { itemStyle: { opacity: 0.85 } }
+    }],
+    animationDuration:       500,
+    animationEasing:         'cubicOut',
+    animationDurationUpdate: 700,
+    animationEasingUpdate:   'cubicInOut'
+  };
+}
+
+barChart.setOption(buildBarOption([]));
+
+function updateBar() {
+  barChart.setOption(buildBarOption([...ipState.values()]), { replaceMerge: 'series' });
+}
+
+// ─────────────────────────────────────────────
+//  ECharts: Donut
+// ─────────────────────────────────────────────
+const donutChart = echarts.init(document.getElementById('donut-panel'), 'dark');
+
+donutChart.setOption({
+  backgroundColor: 'transparent',
+  legend: {
+    bottom: 8,
+    textStyle: { color: '#8b949e', fontSize: 10 },
+    itemWidth: 10, itemHeight: 10
+  },
+  series: [{
+    type: 'pie',
+    radius: ['42%', '68%'],
+    center: ['50%', '46%'],
+    avoidLabelOverlap: false,
+    label: { show: false },
+    labelLine: { show: false },
+    emphasis: {
+      label: { show: true, fontSize: 13, fontWeight: 'bold', color: '#e6edf3' }
+    },
+    data: [
+      { value: 0, name: 'HIGH',   itemStyle: { color: '#f85149' } },
+      { value: 0, name: 'MEDIUM', itemStyle: { color: '#e3b341' } },
+      { value: 0, name: 'LOW',    itemStyle: { color: '#3fb950' } }
+    ]
+  }],
+  animationDurationUpdate: 500
+});
+
+function updateDonut() {
+  const cnt = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  ipState.forEach(e => cnt[e.riskLevel] = (cnt[e.riskLevel] || 0) + 1);
+  donutChart.setOption({
+    series: [{ data: [
+      { value: cnt.HIGH,   name: 'HIGH',   itemStyle: { color: '#f85149' } },
+      { value: cnt.MEDIUM, name: 'MEDIUM', itemStyle: { color: '#e3b341' } },
+      { value: cnt.LOW,    name: 'LOW',    itemStyle: { color: '#3fb950' } }
+    ]}]
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Stats
+// ─────────────────────────────────────────────
+function updateStats() {
+  const vals = [...ipState.values()];
+  const cnt  = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  vals.forEach(e => cnt[e.riskLevel] = (cnt[e.riskLevel] || 0) + 1);
+  document.getElementById('stat-total').textContent  = vals.length;
+  document.getElementById('stat-high').textContent   = cnt.HIGH;
+  document.getElementById('stat-medium').textContent = cnt.MEDIUM;
+  document.getElementById('stat-low').textContent    = cnt.LOW;
+}
+
+// ─────────────────────────────────────────────
+//  Event Log
+// ─────────────────────────────────────────────
+function addLogEntry(event, isNewEvent = true) {
+  const container = document.getElementById('log-entries');
+  const date      = parseDate(event.detectedAt);
+  const timeStr   = fmtTime(date);
+  const absScore  = Math.abs(event.score).toFixed(3);
+  const aiScore   = (event.aiScore !== undefined && event.aiScore !== null)
+                    ? event.aiScore.toFixed(3) : '—';
+  const reason    = buildReason(event);
+
+  const div = document.createElement('div');
+  div.className = `log-entry ${event.riskLevel}${isNewEvent ? ' new' : ''}`;
+  div.innerHTML = `
+    <span class="entry-ip">${event.ip}</span>
+    <span class="entry-badge ${event.riskLevel}">${event.riskLevel}</span>
+    <span style="color:#8b949e; font-size:10px;">z=${absScore} ai=${aiScore} req=${event.requestCount} reason=${reason}</span>
+    <span class="entry-meta">${timeStr}</span>`;
+
+  if (isNewEvent) {
+    container.prepend(div);
+  } else {
+    container.appendChild(div);
+  }
+
+  // Keep max 60 entries
+  while (container.children.length > 60) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Core update
+// ─────────────────────────────────────────────
+function processEvent(event, isNewEvent = true) {
+  ipState.set(event.ip, event);
+
+  updateBar();
+  updateDonut();
+  updateStats();
+
+  if (isNewEvent) {
+    addLogEntry(event, true);
+    document.getElementById('last-update').textContent =
+      'Last: ' + fmtTime(parseDate(event.detectedAt));
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Initial load from REST
+// ─────────────────────────────────────────────
+async function loadInitial() {
+  try {
+    const res  = await fetch('/results');
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    // Populate state silently
+    data.forEach(r => ipState.set(r.ip, r));
+    updateBar();
+    updateDonut();
+    updateStats();
+    // Show history in log (oldest first so newest is at top after prepend)
+    [...data].reverse().forEach(r => addLogEntry(r, false));
+    if (data.length > 0) {
+      const last = data.reduce((a, b) =>
+        parseDate(a.detectedAt) > parseDate(b.detectedAt) ? a : b);
+      document.getElementById('last-update').textContent =
+        'Last: ' + fmtTime(parseDate(last.detectedAt));
+    }
+  } catch (e) {
+    console.warn('[Dashboard] 초기 데이터 로드 실패:', e);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  SSE connection
+// ─────────────────────────────────────────────
+function connectSSE() {
+  const sse   = new EventSource('/dashboard/stream');
+  const dot   = document.getElementById('sse-dot');
+  const label = document.getElementById('sse-label');
+
+  sse.onopen = () => {
+    dot.className = 'dot live';
+    label.textContent = 'LIVE';
+  };
+
+  sse.addEventListener('anomaly', e => {
+    try {
+      const data = JSON.parse(e.data);
+      processEvent(data, true);
+    } catch (err) {
+      console.error('[SSE] JSON 파싱 오류:', err);
+    }
+  });
+
+  sse.onerror = () => {
+    dot.className = 'dot error';
+    label.textContent = 'RECONNECTING…';
+    sse.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// ─────────────────────────────────────────────
+//  Resize
+// ─────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  barChart.resize();
+  donutChart.resize();
+});
+
+// ─────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────
+loadInitial().then(connectSSE);
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 package kst.toy.ai.logdetector.domain;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -38,6 +39,7 @@ public class AnomalyResult {
 
     private double failureRate;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime detectedAt;
 
     @Override

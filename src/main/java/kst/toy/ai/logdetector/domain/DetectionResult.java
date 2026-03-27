@@ -11,6 +11,7 @@ public class DetectionResult {
     private String ip;
     private RiskLevel riskLevel;
     private double score;
+    private double aiScore;
     private long requestCount;
     private double failureRate;
 }

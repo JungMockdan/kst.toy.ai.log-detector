@@ -115,3 +115,102 @@
 
 ---
 
+---
+
+## 260327 Phase 2: 운영 자동화
+
+### 🖥️ 7. 모니터링 대시보드 (Virtual Dashboard)
+
+**목표**: 기존 REST API를 조합한 실시간 시각화 페이지 (별도 프레임워크 없이 Spring Boot static 서빙)
+
+#### 구성
+- `src/main/resources/static/dashboard.html` — HTML + Chart.js (CDN)
+- 데이터 소스: 기존 API 폴링 (5초 간격)
+  - `GET /results` → 전체 탐지 결과 테이블
+  - `GET /results/active-alerts` → 활성 알림 배지
+  - `GET /analyze/features` → Feature 현황
+
+#### 화면 구성
+| 위젯 | 설명 | 데이터 소스 |
+|------|------|-------------|
+| 활성 알림 배지 | HIGH/MEDIUM 카운트 | `/results/active-alerts` |
+| 위험도 도넛 차트 | HIGH/MEDIUM/LOW 비율 | `/results` |
+| AI Score 바 차트 | IP별 anomaly_score | `/results` |
+| 탐지 결과 테이블 | IP, score, riskLevel, 시간 | `/results` |
+| 자동 새로고침 | 5초 폴링 | — |
+
+#### 작업 목록
+- [ ] `dashboard.html` 작성 (Chart.js 도넛 + 바 차트)
+- [ ] 폴링 로직 (setInterval 5초, fetch API)
+- [ ] 위험도별 색상 코딩 (HIGH=red, MEDIUM=yellow, LOW=green)
+- [ ] `GET /dashboard` 리다이렉트 또는 정적 접근 확인 (Spring Boot auto-serve)
+
+---
+
+### 🔄 8. 데이터 드리프트 감지 및 자동 재학습 파이프라인
+
+**목표**: 모델이 본 분포와 실시간 데이터 분포가 달라지면 자동으로 재학습
+
+#### 드리프트 감지 전략 (PSI 기반)
+
+PSI (Population Stability Index) = Σ (실제비율 - 기준비율) × ln(실제비율 / 기준비율)
+
+| PSI 범위 | 의미 | 대응 |
+|----------|------|------|
+| < 0.1 | 안정 (drift 없음) | 유지 |
+| 0.1 ~ 0.2 | 경미한 변화 | 모니터링 강화 |
+| > 0.2 | **유의미한 drift** | **재학습 트리거** |
+
+**메트릭 대상**: `anomaly_score` 분포 (학습 시 기준 분포 저장 → 현재 분포와 비교)
+
+#### 자동 재학습 흐름
+
+```
+[Spring Boot 스케줄러 - 1시간마다]
+    → POST /analyze/features/export  (최신 feature-data.csv 갱신)
+    → POST http://localhost:5000/drift-check  (Flask PSI 계산)
+        → PSI > 0.2 이면:
+            → uv run python ml_training.py  (재학습)
+            → POST http://localhost:5000/reload-model  (모델 hot-reload)
+            → 재학습 이벤트 로그 기록
+```
+
+#### 구현 파일
+
+| 파일 | 역할 |
+|------|------|
+| `drift_detector.py` | PSI 계산 + 기준 분포 저장/로드 (baseline.json) |
+| `ml_api.py` 확장 | `GET /drift-check`, `POST /reload-model` 엔드포인트 추가 |
+| `RetrainingService.java` | 스케줄러 + export + drift-check + reload 호출 |
+| `baseline.json` | 학습 시점의 score 분포 히스토그램 (자동 생성) |
+
+#### 작업 목록
+
+**Python 측 (Flask 확장)**
+- [ ] `drift_detector.py`: PSI 계산 함수 + baseline 저장/비교
+- [ ] `ml_api.py`: `GET /drift-check` 엔드포인트 (PSI 값 + drift 여부 반환)
+- [ ] `ml_api.py`: `POST /reload-model` 엔드포인트 (pkl 재로드)
+- [ ] `ml_training.py`: 학습 완료 시 `baseline.json` 자동 생성
+
+**Java 측 (Spring Boot 확장)**
+- [ ] `RetrainingService.java`: `@Scheduled(fixedRate=3600000)` 스케줄러
+  - feature export → drift check → 조건부 재학습 트리거
+- [ ] `AnalyzeController.java`: `POST /analyze/retrain` (수동 트리거 엔드포인트)
+- [ ] 재학습 이벤트 로그: `[RETRAIN]` prefix 로그
+
+---
+
+## 🎯 Phase 2 우선순위
+
+| 단계 | 작업 | 상태 | 난이도 |
+|------|------|------|--------|
+| 7 | 모니터링 대시보드 (HTML) | 🔲 TODO | ⭐⭐ |
+| 8-A | Flask drift-check / reload-model 엔드포인트 | 🔲 TODO | ⭐⭐ |
+| 8-B | drift_detector.py (PSI 계산) | 🔲 TODO | ⭐⭐⭐ |
+| 8-C | ml_training.py → baseline.json 생성 | 🔲 TODO | ⭐ |
+| 8-D | RetrainingService.java (스케줄러) | 🔲 TODO | ⭐⭐ |
+
+**권장 순서**: 7 → 8-C → 8-A → 8-B → 8-D
+
+---
+

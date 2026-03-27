@@ -40,6 +40,7 @@ dependencies {
 	//	(JSON 직렬화/역직렬화 엔진)
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 	implementation 'com.fasterxml.jackson.core:jackson-annotations'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
 
 	// 3. Docker Compose 지원 (Docker Desktop이 켜져있으면 자동으로 띄워줌)
@@ -60,4 +61,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+bootRun {
+	jvmArgs '-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'
 }

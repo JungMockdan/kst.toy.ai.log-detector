@@ -24,6 +24,8 @@ import java.util.Map;
 public class AnomalyService {
 
     private final AnomalyResultRepository resultRepository;
+    private final DashboardSseService dashboardSseService;
+    private final RedisWindowService redisWindowService;
     private final RestTemplate restTemplate = new RestTemplate();
 
 
@@ -51,6 +53,7 @@ public class AnomalyService {
                 .orElse(0);
 
         double std = calculateStd(features, mean);
+        redisWindowService.saveStats(mean, std);  // 실시간 경로에서 Z-score 공유용
         return features.stream()
             .map(f -> {
                     double z = calculateZScore(f.getRequestCount(), mean, std);
@@ -88,6 +91,7 @@ public class AnomalyService {
                         return result;
                 })
                 .map(resultRepository::save)
+                .peek(dashboardSseService::broadcast)
                 .toList();
     }
 

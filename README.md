@@ -206,6 +206,39 @@ uv run python ml_training.py
 
 ---
 
+## 🤖 운영 자동화 (Drift + Retrain)
+
+현재 동작 모드: **반자동**
+- 운영자가 명령을 실행하면 드리프트 감지와 재학습 판단/실행이 자동으로 진행됩니다.
+- 상시 백그라운드 감시는 아직 적용되지 않았습니다.
+
+### 1) 기준선 생성 (최초 1회)
+```bash
+uv run python ml_drift_monitor.py --init-baseline
+```
+
+### 2) 드리프트 점검
+```bash
+uv run python ml_drift_monitor.py --threshold 1.5
+```
+
+### 3) 드리프트 감지 시 자동 재학습
+```bash
+uv run python ml_drift_monitor.py --threshold 1.5 --auto-retrain
+```
+
+설명:
+- 기준선 파일: `data/drift-baseline.json`
+- 점검 기준: feature 평균 이동량을 baseline 표준편차로 정규화한 z-shift 평균
+- 임계치 초과 시 `ml_training.py`를 호출해 모델(`isolation_forest_model.pkl`)을 재생성
+
+코멘트(완전자동 전환):
+- Windows 작업 스케줄러에 주기 실행 등록하면 상시 자동 운영으로 전환할 수 있습니다.
+- 권장 실행 커맨드: `uv run python ml_drift_monitor.py --threshold 1.5 --auto-retrain`
+- 운영 안정성을 위해 실행 로그 파일 저장, 실패 시 재시도, 알림(메일/슬랙) 연동을 함께 구성하세요.
+
+---
+
 ## 📝 개발 진행 상황
 
 전체 5단계 작업 완료율: **✅ 100%**

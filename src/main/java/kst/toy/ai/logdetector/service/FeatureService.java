@@ -51,6 +51,24 @@ public class FeatureService {
 
         return features;
     }
+    public Feature extractFeatureForIp(String ip) {
+        List<AccessLog> logs = logRepository.findByIp(ip);
+        if (logs.isEmpty()) return null;
+
+        int total = logs.size();
+        long failCount = logs.stream().filter(l -> l.getStatus() >= 400).count();
+        double failureRate = (double) failCount / total;
+        int distinctUrlCount = (int) logs.stream().map(AccessLog::getUrl).distinct().count();
+        double averageUrlLength = logs.stream()
+                .mapToInt(l -> l.getUrl() != null ? l.getUrl().length() : 0)
+                .average().orElse(0.0);
+        int hourOfDay = logs.stream()
+                .filter(l -> l.getTimestamp() != null)
+                .map(l -> l.getTimestamp().getHour())
+                .reduce((a, b) -> a).orElse(0);
+        return new Feature(ip, total, failureRate, distinctUrlCount, averageUrlLength, hourOfDay);
+    }
+
 // CSV 내보내기 메서드 (누적 저장: 신규 생성 또는 IP별 업데이트)
     public void exportFeaturesToCsv(String outputFilePath) {
         List<Feature> newFeatures = extractFeatures();
