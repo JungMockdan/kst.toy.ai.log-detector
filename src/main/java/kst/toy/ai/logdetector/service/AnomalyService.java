@@ -154,9 +154,10 @@ public class AnomalyService {
             );
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.postForEntity(url, entity, Map.class).getBody();
 
-            return response.getBody();
+            return response;
         } catch (Exception e) {
             log.error("AI prediction failed: {}", e.getMessage());
             return Map.of("is_anomaly", false, "anomaly_score", 0.0); // fallback

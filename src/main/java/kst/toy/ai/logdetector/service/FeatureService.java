@@ -51,21 +51,54 @@ public class FeatureService {
 
         return features;
     }
-// CSV 내보내기 메서드
+// CSV 내보내기 메서드 (누적 저장: 신규 생성 또는 IP별 업데이트)
     public void exportFeaturesToCsv(String outputFilePath) {
-        List<Feature> features = extractFeatures();
+        List<Feature> newFeatures = extractFeatures();
+        java.nio.file.Path filePath = java.nio.file.Path.of(outputFilePath);
+        
+        // 기존 파일이 있으면 기존 데이터를 읽어서 merge
+        java.util.Map<String, Feature> featureMap = new java.util.LinkedHashMap<>();
+        
+        if (java.nio.file.Files.exists(filePath)) {
+            try {
+                List<String> lines = java.nio.file.Files.readAllLines(filePath);
+                // 첫 번째 라인(header) 제외하고 읽기
+                for (int i = 1; i < lines.size(); i++) {
+                    String[] parts = lines.get(i).split(",");
+                    if (parts.length >= 6) {
+                        Feature f = new Feature(
+                            parts[0], // ip
+                            Integer.parseInt(parts[1]), // requestCount
+                            Double.parseDouble(parts[2]), // failureRate
+                            Integer.parseInt(parts[3]), // distinctUrlCount
+                            Double.parseDouble(parts[4]), // averageUrlLength
+                            Integer.parseInt(parts[5]) // hourOfDay
+                        );
+                        featureMap.put(f.getIp(), f);
+                    }
+                }
+            } catch (java.io.IOException e) {
+                // 파일 읽기 실패시 새로 생성
+            }
+        }
+        
+        // 새 데이터로 기존 데이터 업데이트 (IP별 최신 데이터 유지)
+        for (Feature f : newFeatures) {
+            featureMap.put(f.getIp(), f);
+        }
 
         String header = "ip,requestCount,failureRate,distinctUrlCount,averageUrlLength,hourOfDay";
 
         try (java.io.BufferedWriter writer = java.nio.file.Files.newBufferedWriter(
-                java.nio.file.Path.of(outputFilePath),
+                filePath,
                 java.nio.charset.StandardCharsets.UTF_8,
                 java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.WRITE,
                 java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
         )) {
             writer.write(header);
             writer.newLine();
-            for (Feature f : features) {
+            for (Feature f : featureMap.values()) {
                 writer.write(String.format("%s,%d,%.6f,%d,%.2f,%d",
                         f.getIp(), f.getRequestCount(), f.getFailureRate(), f.getDistinctUrlCount(), f.getAverageUrlLength(), f.getHourOfDay()));
                 writer.newLine();

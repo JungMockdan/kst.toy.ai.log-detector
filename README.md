@@ -18,7 +18,7 @@ IP별 요청 로그를 실시간 분석해 **이상 트래픽을 감지**하는 
 - **Backend**: Spring Boot 4.0.4 + Gradle
 - **ML/Python**: Python 3.14.3 (uv 관리)
   - pandas, scikit-learn, joblib, flask
-- **DB**: H2 (in-memory)
+- **DB**: H2 File-based (`./data/logdetector`)
 - **서버 포트**: Spring(8080), Flask(5000)
 
 ---
@@ -47,8 +47,12 @@ uv run python ml_api.py  # port 5000
 # 이상 탐지 분석
 curl -X POST http://localhost:8080/analyze
 
+# Feature 데이터 조회 (모델 학습용 특성값)
+curl -X GET http://localhost:8080/analyze/features
+
 # Feature 데이터 내보내기
 curl -X POST http://localhost:8080/analyze/features/export
+
 ```
 
 ---
@@ -80,14 +84,80 @@ curl -X POST http://localhost:8080/analyze/features/export
   - `MEDIUM`: Z-score ≥ 2.0
   - `LOW`: 정상
 
+### GET /analyze/features
+
+Feature 데이터 조회 (모델 학습용 특성값)
+
+```json
+[
+  {
+    "ip": "196.168.0.1",
+    "requestCount": 105,
+    "failureRate": 1.0,
+    "distinctUrlCount": 3,
+    "averageUrlLength": 15.5,
+    "hourOfDay": 10
+  },
+  {
+    "ip": "196.168.0.2",
+    "requestCount": 2,
+    "failureRate": 0.0,
+    "distinctUrlCount": 1,
+    "averageUrlLength": 15.0,
+    "hourOfDay": 10
+  }
+]
+```
+
+**필드 설명 (학습 특성)**:
+- `requestCount`: IP별 총 요청 수
+- `failureRate`: 실패 요청 비율 (HTTP 400+ 상태 코드)
+- `distinctUrlCount`: 접근한 URL 종류 수
+- `averageUrlLength`: URL 평균 길이
+- `hourOfDay`: 요청 발생 시간대 (시간)
+
+### POST /analyze/features/export
+
+Feature 데이터를 CSV 파일로 저장 (학습 데이터 누적)
+
+**요청:**
+```
+POST /analyze/features/export?fileName=feature-data.csv
+```
+
+**응답:**
+```
+Exported feature CSV to d:\dev\workspace\kst.toy.ai.log-detector\feature-data.csv
+```
+
+**특징:**
+- API 호출할 때마다 현재 Feature 데이터 저장
+- 파일이 없으면 새로 생성
+- 파일이 있으면 IP별 데이터 업데이트 (중복 제거, 누적 저장)
+
 ---
 
 ## 🧪 데모 시나리오
 
 ### 데이터 수집 및 모델 학습
+
+**Step 1: 로그 데이터 생성 (API 호출)**
+```powershell
+# 학습 데이터를 위한 샘플 로그 REST API로 전송
+for ($i = 1; $i -le 6; $i++) {
+  curl -X POST http://localhost:8080/logs `
+    -H "Content-Type: application/json" `
+    -d (@{
+      "ip" = "196.168.0.$i"
+      "method" = "GET"
+      "uri" = "/api/users"
+      "status" = if ($i -eq 1) { 500 } else { 200 }
+    } | ConvertTo-Json -Compress)
+}
+```
+
+**Step 2: Feature 데이터 CSV 추출 및 모델 학습**
 ```bash
-# 1. 실제 로그 데이터 생성 (Spring이 자동으로 처리)
-# 2. CSV로 Feature 추출
 uv run python ml_training.py
 
 # 출력:
