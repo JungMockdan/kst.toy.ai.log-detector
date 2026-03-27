@@ -52,19 +52,26 @@ public class AnomalyService {
 
         double std = calculateStd(features, mean);
         return features.stream()
-                .map(f -> {
+            .map(f -> {
                     double z = calculateZScore(f.getRequestCount(), mean, std);
                     RiskLevel risk = classifyRisk(z);
 
-                    // AI 예측 추가
+                    // AI 예측 추가 (성능 측정 포함)
+                    long startAI = System.currentTimeMillis();
                     Map<String, Object> aiResult = predictAnomalyWithAI(f);
+                    long elapsedAI = System.currentTimeMillis() - startAI;
+                    
                     boolean aiAnomaly = (boolean) aiResult.get("is_anomaly");
                     double aiScore = (double) aiResult.get("anomaly_score");
+                    
+                    // 메트릭 로깅
+                    log.info("[METRIC] IP={}, Z-score={:.3f}, AI-score={:.3f}, AI-time={}ms, Anomaly={}, Risk={}", 
+                        f.getIp(), z, aiScore, elapsedAI, aiAnomaly, risk.name());
 
                     // Z-score와 AI 결합: 둘 중 하나라도 이상이면 HIGH
                     RiskLevel finalRisk = (risk == RiskLevel.HIGH || aiAnomaly) ? RiskLevel.HIGH : risk;
 
-                    return AnomalyResult.builder()
+                        AnomalyResult result = AnomalyResult.builder()
                             .ip(f.getIp())
                             .score(z)
                             .aiScore(aiScore)
@@ -73,6 +80,12 @@ public class AnomalyService {
                             .failureRate(f.getFailureRate())
                             .detectedAt(LocalDateTime.now())
                             .build();
+
+                        // Keep one row per IP by updating the latest existing record.
+                        resultRepository.findTopByIpOrderByDetectedAtDesc(f.getIp())
+                            .ifPresent(existing -> result.setId(existing.getId()));
+
+                        return result;
                 })
                 .map(resultRepository::save)
                 .toList();

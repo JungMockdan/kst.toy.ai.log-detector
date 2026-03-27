@@ -21,7 +21,7 @@ def predict():
     result = {
         'prediction': int(prediction),  # -1: 이상, 1: 정상
         'anomaly_score': float(score),  # 낮을수록 이상
-        'is_anomaly': prediction == -1
+        'is_anomaly': bool(prediction == -1)
     }
     return jsonify(result)
 
